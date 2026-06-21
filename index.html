@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#1f6f78">
+    <title>Zakup PWA</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Учет госзакупок</p>
+          <h1>Zakup</h1>
+        </div>
+        <button class="icon-button" id="backupButton" title="Скачать резервную копию" type="button">↓</button>
+      </header>
+
+      <main>
+        <section class="view active" id="dashboardView" aria-labelledby="dashboardTitle">
+          <div class="section-head">
+            <h2 id="dashboardTitle">Dashboard</h2>
+            <button class="primary-action" data-open-lot type="button">+ Заявка</button>
+          </div>
+
+          <div class="metric-grid">
+            <article class="metric">
+              <span>Количество лотов</span>
+              <strong id="totalLots">0</strong>
+            </article>
+            <article class="metric">
+              <span>Выручка за месяц</span>
+              <strong id="monthRevenue">0 ₸</strong>
+            </article>
+          </div>
+
+          <article class="panel">
+            <div class="panel-title">
+              <h3>Срок истекает</h3>
+              <span>3 ближайших</span>
+            </div>
+            <div class="deadline-list" id="deadlineList"></div>
+          </article>
+        </section>
+
+        <section class="view" id="lotsView" aria-labelledby="lotsTitle">
+          <div class="section-head">
+            <h2 id="lotsTitle">Заявки</h2>
+            <button class="primary-action" data-open-lot type="button">+ Заявка</button>
+          </div>
+          <div class="toolbar">
+            <input id="lotSearch" type="search" placeholder="Поиск">
+            <select id="statusFilter" aria-label="Фильтр по статусу"></select>
+          </div>
+          <div class="list" id="lotsList"></div>
+        </section>
+
+        <section class="view" id="calcView" aria-labelledby="calcTitle">
+          <div class="section-head">
+            <h2 id="calcTitle">Есеп</h2>
+            <button class="primary-action" data-open-calc type="button">+ Есеп</button>
+          </div>
+          <div class="toolbar">
+            <input id="calcSearch" type="search" placeholder="Поиск по номеру">
+            <button class="secondary-action" id="importButton" type="button">Импорт</button>
+            <input class="hidden" id="importInput" type="file" accept="application/json">
+          </div>
+          <div class="list" id="calcList"></div>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="Навигация">
+        <button class="nav-button active" data-view="dashboardView" type="button">Dashboard</button>
+        <button class="nav-button" data-view="lotsView" type="button">Заявки</button>
+        <button class="nav-button" data-view="calcView" type="button">Есеп</button>
+      </nav>
+    </div>
+
+    <dialog id="lotDialog">
+      <form method="dialog" class="dialog-form" id="lotForm">
+        <div class="dialog-head">
+          <h2 id="lotDialogTitle">Заявка</h2>
+          <button class="icon-button" data-close-dialog="lotDialog" type="button">×</button>
+        </div>
+        <input type="hidden" name="id">
+        <label>Номер лота<input name="lotNumber" required></label>
+        <label>Статус<select name="status" required></select></label>
+        <label>Наименование<textarea name="name" rows="2"></textarea></label>
+        <label>Категория<input name="category"></label>
+        <label>Срок<input name="deadline" type="datetime-local"></label>
+        <label>Адрес<textarea name="address" rows="2"></textarea></label>
+        <label>Бюджет<input name="budget" inputmode="decimal" type="number" min="0" step="1"></label>
+        <label>Комментарий<textarea name="comment" rows="3"></textarea></label>
+        <label>Ссылка<input name="link" type="url"></label>
+        <label>Файлы/документы<input name="docs"></label>
+        <label>Дата закрытия<input name="closedAt" type="date"></label>
+        <div class="dialog-actions">
+          <button class="danger-action" id="deleteLotButton" type="button">Удалить</button>
+          <button class="primary-action" value="default" type="submit">Сохранить</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="calcDialog">
+      <form method="dialog" class="dialog-form" id="calcForm">
+        <div class="dialog-head">
+          <h2 id="calcDialogTitle">Есеп</h2>
+          <button class="icon-button" data-close-dialog="calcDialog" type="button">×</button>
+        </div>
+        <input type="hidden" name="id">
+        <label>Номер лота<select name="lotId" required></select></label>
+        <label>Закуп<input name="purchase" inputmode="decimal" type="number" min="0" step="1"></label>
+        <label>Доставка<input name="delivery" inputmode="decimal" type="number" min="0" step="1"></label>
+        <label>Работа<input name="work" inputmode="decimal" type="number" min="0" step="1"></label>
+        <label>Доп.расход<input name="extra" inputmode="decimal" type="number" min="0" step="1"></label>
+        <label>ЦП<input name="sale" inputmode="decimal" type="number" min="0" step="1"></label>
+        <div class="calc-preview" id="calcPreview"></div>
+        <div class="dialog-actions">
+          <button class="danger-action" id="deleteCalcButton" type="button">Удалить</button>
+          <button class="primary-action" value="default" type="submit">Сохранить</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
