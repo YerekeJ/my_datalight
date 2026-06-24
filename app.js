@@ -6,105 +6,8 @@ const supabaseClient = supabase.createClient(
   SUPABASE_ANON_KEY
 );
 
-async function loadStateFromSupabase() {
-  const { data: lots, error: lotsError } = await supabaseClient
-    .from("lots")
-    .select("*");
-
-  if (lotsError) {
-    console.error("LOTS ERROR", lotsError);
-    return;
-  }
-
-  const { data: calculations, error: calcError } = await supabaseClient
-    .from("calculations")
-    .select("*");
-
-  if (calcError) {
-    console.error("CALC ERROR", calcError);
-    return;
-  }
-
-  state = {
-    lots: lots || [],
-    calculations: calculations || []
-  };
-
-  render();
-}
-
-const STORAGE_KEY = "zakup-pwa-state-v1";
 const statuses = ["Проект", "Анализ", "Подали", "Выиграли", "Проиграли", "Договор", "Отказ", "Закрыто"];
 const inactiveStatuses = new Set(["Закрыто", "Проиграли", "Отказ"]);
-
-const seedState = {
-  lots: [
-    {
-      id: crypto.randomUUID(),
-      lotNumber: "12622761-1",
-      status: "Анализ",
-      name: "Поставка хозяйственных товаров",
-      category: "Товары",
-      deadline: "2026-06-25T16:00",
-      address: "Кызылорда",
-      budget: 399999,
-      comment: "Проверить доставку",
-      link: "",
-      docs: "",
-      closedAt: ""
-    },
-    {
-      id: crypto.randomUUID(),
-      lotNumber: "12625402-1",
-      status: "Договор",
-      name: "Канцелярские товары",
-      category: "Товары",
-      deadline: "2026-06-28T12:00",
-      address: "Астана",
-      budget: 99000,
-      comment: "",
-      link: "",
-      docs: "",
-      closedAt: "2026-06-18"
-    },
-    {
-      id: crypto.randomUUID(),
-      lotNumber: "12630864-1",
-      status: "Подали",
-      name: "Расходные материалы",
-      category: "Товары",
-      deadline: "2026-07-03T10:30",
-      address: "Алматы",
-      budget: 650000,
-      comment: "Ждем итог",
-      link: "",
-      docs: "",
-      closedAt: ""
-    }
-  ],
-  calculations: []
-};
-
-seedState.calculations = [
-  {
-    id: crypto.randomUUID(),
-    lotId: seedState.lots[0].id,
-    purchase: 310000,
-    delivery: 10000,
-    work: 0,
-    extra: 0,
-    sale: 399999
-  },
-  {
-    id: crypto.randomUUID(),
-    lotId: seedState.lots[1].id,
-    purchase: 75000,
-    delivery: 2000,
-    work: 0,
-    extra: 0,
-    sale: 99000
-  }
-];
 
 let state = {
   lots: [],
@@ -178,24 +81,221 @@ function bindEvents() {
   els.importInput.addEventListener("change", importBackup);
 }
 
+// --- СЛОЙ ДАННЫХ И SUPABASE ---
+
+// Мапперы для преобразования данных базы (snake_case) в клиентские (camelCase)
+function mapLotToClient(dbLot) {
+  return {
+    id: dbLot.id,
+    lotNumber: dbLot.lot_number,
+    status: dbLot.status,
+    name: dbLot.name,
+    category: dbLot.category,
+    deadline: dbLot.deadline,
+    address: dbLot.address,
+    budget: dbLot.budget,
+    comment: dbLot.comment,
+    link: dbLot.link,
+    docs: dbLot.docs,
+    closedAt: dbLot.closed_at
+  };
+}
+
+function mapCalcToClient(dbCalc) {
+  return {
+    id: dbCalc.id,
+    lotId: dbCalc.lot_id,
+    purchase: dbCalc.purchase,
+    delivery: dbCalc.delivery,
+    work: dbCalc.work,
+    extra: dbCalc.extra,
+    sale: dbCalc.sale
+  };
+}
+
+async function loadStateFromSupabase() {
+  const { data: lots, error: lotsError } = await supabaseClient
+    .from("lots")
+    .select("*");
+
+  if (lotsError) {
+    console.error("LOTS ERROR", lotsError);
+    alert("Ошибка загрузки лотов");
+    return;
+  }
+
+  const { data: calculations, error: calcError } = await supabaseClient
+    .from("calculations")
+    .select("*");
+
+  if (calcError) {
+    console.error("CALC ERROR", calcError);
+    alert("Ошибка загрузки расчетов");
+    return;
+  }
+
+  state = {
+    lots: (lots || []).map(mapLotToClient),
+    calculations: (calculations || []).map(mapCalcToClient)
+  };
+
+  render();
+}
+
+async function saveLotFromForm(event) {
+  event.preventDefault();
+  const form = els.lotForm.elements;
+  const id = form.id.value || crypto.randomUUID();
+
+  const payload = {
+    id,
+    lot_number: form.lotNumber.value.trim(),
+    status: form.status.value,
+    name: form.name.value.trim(),
+    category: form.category.value.trim(),
+    deadline: form.deadline.value || null,
+    address: form.address.value.trim(),
+    budget: num(form.budget.value),
+    comment: form.comment.value.trim(),
+    link: form.link.value.trim(),
+    docs: form.docs.value.trim(),
+    closed_at: form.closedAt.value || null
+  };
+
+  const result = await supabaseClient.from("lots").upsert(payload);
+
+  if (result.error) {
+    console.error(result.error);
+    alert("Ошибка сохранения лота");
+    return;
+  }
+
+  await loadStateFromSupabase();
+  els.lotDialog.close();
+}
+
+async function saveCalcFromForm(event) {
+  event.preventDefault();
+  const form = els.calcForm.elements;
+  const id = form.id.value || crypto.randomUUID();
+  
+  const payload = {
+    id,
+    lot_id: form.lotId.value,
+    purchase: num(form.purchase.value),
+    delivery: num(form.delivery.value),
+    work: num(form.work.value),
+    extra: num(form.extra.value),
+    sale: num(form.sale.value)
+  };
+
+  const duplicate = state.calculations.find((calc) => calc.lotId === payload.lot_id && calc.id !== id);
+  if (duplicate) {
+    alert("Для этого лота уже есть Есеп.");
+    return;
+  }
+
+  const result = await supabaseClient.from("calculations").upsert(payload);
+
+  if (result.error) {
+    console.error(result.error);
+    alert("Ошибка сохранения расчета");
+    return;
+  }
+
+  await loadStateFromSupabase();
+  els.calcDialog.close();
+}
+
+async function deleteCurrentLot() {
+  const id = els.lotForm.elements.id.value;
+  if (!id || !confirm("Удалить заявку и связанный есеп?")) return;
+
+  // Удаляем сначала расчеты, чтобы не было ошибок внешнего ключа
+  await supabaseClient.from("calculations").delete().eq("lot_id", id);
+  const result = await supabaseClient.from("lots").delete().eq("id", id);
+
+  if (result.error) {
+    alert("Ошибка удаления лота");
+    return;
+  }
+
+  await loadStateFromSupabase();
+  els.lotDialog.close();
+}
+
+async function deleteCurrentCalc() {
+  const id = els.calcForm.elements.id.value;
+  if (!id || !confirm("Удалить расчет?")) return;
+
+  const result = await supabaseClient.from("calculations").delete().eq("id", id);
+
+  if (result.error) {
+    alert("Ошибка удаления расчета");
+    return;
+  }
+
+  await loadStateFromSupabase();
+  els.calcDialog.close();
+}
+
+async function importBackup(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  
+  reader.onload = async () => {
+    try {
+      const imported = JSON.parse(String(reader.result));
+      if (!Array.isArray(imported.lots) || !Array.isArray(imported.calculations)) throw new Error("bad shape");
+
+      // Подготавливаем данные для БД
+      const dbLots = imported.lots.map(lot => ({
+        id: lot.id,
+        lot_number: lot.lotNumber,
+        status: lot.status,
+        name: lot.name,
+        category: lot.category,
+        deadline: lot.deadline || null,
+        address: lot.address,
+        budget: num(lot.budget),
+        comment: lot.comment,
+        link: lot.link,
+        docs: lot.docs,
+        closed_at: lot.closedAt || null
+      }));
+
+      const dbCalcs = imported.calculations.map(calc => ({
+        id: calc.id,
+        lot_id: calc.lotId,
+        purchase: num(calc.purchase),
+        delivery: num(calc.delivery),
+        work: num(calc.work),
+        extra: num(calc.extra),
+        sale: num(calc.sale)
+      }));
+
+      // Массовая загрузка в Supabase
+      if (dbLots.length > 0) await supabaseClient.from("lots").upsert(dbLots);
+      if (dbCalcs.length > 0) await supabaseClient.from("calculations").upsert(dbCalcs);
+
+      await loadStateFromSupabase();
+      alert("Импорт в базу данных успешно завершен.");
+    } catch (error) {
+      console.error(error);
+      alert("Не получилось импортировать файл.");
+    } finally {
+      event.target.value = "";
+    }
+  };
+  reader.readAsText(file);
+}
+
+// --- СЛОЙ РЕНДЕРА И UI ---
+
 function fillStatusOptions() {
   els.statusFilter.innerHTML = `<option value="">Все статусы</option>${statuses.map((status) => `<option>${status}</option>`).join("")}`;
   els.lotForm.elements.status.innerHTML = statuses.map((status) => `<option>${status}</option>`).join("");
-}
-
-function loadState() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (saved?.lots && saved?.calculations) return saved;
-  } catch {
-    localStorage.removeItem(STORAGE_KEY);
-  }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(seedState));
-  return structuredClone(seedState);
-}
-
-function persist() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 function render() {
@@ -332,96 +432,6 @@ function openCalcDialog(id = "") {
   els.calcDialog.showModal();
 }
 
-async function saveLotFromForm(event) {
-  alert("Сохранение запущено");
-  event.preventDefault();
-
-  const form = els.lotForm.elements;
-  const id = form.id.value || crypto.randomUUID();
-
-  const payload = {
-    id,
-    lot_number: form.lotNumber.value.trim(),
-    status: form.status.value,
-    name: form.name.value.trim(),
-    category: form.category.value.trim(),
-    deadline: form.deadline.value || null,
-    address: form.address.value.trim(),
-    budget: num(form.budget.value),
-    comment: form.comment.value.trim(),
-    link: form.link.value.trim(),
-    docs: form.docs.value.trim(),
-    closed_at: form.closedAt.value || null
-  };
-
-  console.log("PAYLOAD", payload);
-
-  const result = await supabaseClient
-    .from("lots")
-    .upsert(payload)
-    .select();
-
-  console.log("RESULT", result);
-
-  if (result.error) {
-    console.error(result.error);
-    alert("Ошибка сохранения");
-    return;
-  }
-
-  await loadStateFromSupabase();
-
-  els.lotDialog.close();
-}
-
-function saveCalcFromForm(event) {
-  event.preventDefault();
-  const form = els.calcForm.elements;
-  const id = form.id.value || crypto.randomUUID();
-  const payload = {
-    id,
-    lotId: form.lotId.value,
-    purchase: num(form.purchase.value),
-    delivery: num(form.delivery.value),
-    work: num(form.work.value),
-    extra: num(form.extra.value),
-    sale: num(form.sale.value)
-  };
-
-  const duplicate = state.calculations.find((calc) => calc.lotId === payload.lotId && calc.id !== id);
-  if (duplicate) {
-    alert("Для этого лота уже есть Есеп.");
-    return;
-  }
-
-  const index = state.calculations.findIndex((calc) => calc.id === id);
-  if (index >= 0) state.calculations[index] = payload;
-  else state.calculations.push(payload);
-
-  persist();
-  els.calcDialog.close();
-  render();
-}
-
-function deleteCurrentLot() {
-  const id = els.lotForm.elements.id.value;
-  if (!id || !confirm("Удалить заявку и связанный есеп?")) return;
-  state.lots = state.lots.filter((lot) => lot.id !== id);
-  state.calculations = state.calculations.filter((calc) => calc.lotId !== id);
-  persist();
-  els.lotDialog.close();
-  render();
-}
-
-function deleteCurrentCalc() {
-  const id = els.calcForm.elements.id.value;
-  if (!id || !confirm("Удалить расчет?")) return;
-  state.calculations = state.calculations.filter((calc) => calc.id !== id);
-  persist();
-  els.calcDialog.close();
-  render();
-}
-
 function refreshCalcLotOptions() {
   const usedLotIds = new Set(state.calculations.map((calc) => calc.lotId));
   const currentCalcId = els.calcForm?.elements.id?.value;
@@ -449,6 +459,8 @@ function updateCalcPreview() {
     <div><span>Пайда %</span><strong>${formatPercent(totals.profitPercent)}</strong></div>
   `;
 }
+
+// --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 
 function calculate(calc) {
   const sale = num(calc.sale);
@@ -484,32 +496,15 @@ function downloadBackup() {
   URL.revokeObjectURL(url);
 }
 
-function importBackup(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const imported = JSON.parse(String(reader.result));
-      if (!Array.isArray(imported.lots) || !Array.isArray(imported.calculations)) throw new Error("bad shape");
-      state = imported;
-      persist();
-      render();
-      alert("Импорт готов.");
-    } catch {
-      alert("Не получилось импортировать файл.");
-    } finally {
-      event.target.value = "";
-    }
-  };
-  reader.readAsText(file);
-}
-
 function findLot(id) {
   return state.lots.find((lot) => lot.id === id);
 }
 
+// Исправлено: теперь обрабатывает числа с пробелами, например "100 000"
 function num(value) {
+  if (typeof value === "string") {
+    value = value.replace(/\s/g, "");
+  }
   return Number(value) || 0;
 }
 
