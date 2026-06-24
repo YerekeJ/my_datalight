@@ -339,7 +339,7 @@ async function saveLotFromForm(event) {
   const id = form.id.value || crypto.randomUUID();
 
   const payload = {
-    id: id,
+    id,
     lot_number: form.lotNumber.value.trim(),
     status: form.status.value,
     name: form.name.value.trim(),
@@ -352,16 +352,18 @@ async function saveLotFromForm(event) {
     docs: form.docs.value.trim(),
     closed_at: form.closedAt.value || null
   };
+
   console.log("PAYLOAD", payload);
+
   const result = await supabaseClient
-  .from("lots")
-  .upsert(payload)
-  .select();
+    .from("lots")
+    .upsert(payload)
+    .select();
 
   console.log("RESULT", result);
 
-  if (error) {
-    console.error(error);
+  if (result.error) {
+    console.error(result.error);
     alert("Ошибка сохранения");
     return;
   }
