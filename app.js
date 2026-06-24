@@ -1,3 +1,49 @@
+const SUPABASE_URL = "https://iybljtviwkuxjfpmfopb.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5YmxqdHZpd2t1eGpmcG1mb3BiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMzEwNDQsImV4cCI6MjA5NzcwNzA0NH0.fgIfXxTf5GdUTNlac6VWN7mE6TtSUugK8OzFH-lZS4g";
+
+const supabaseClient = supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
+async function testSupabase() {
+  const { data, error } = await supabaseClient
+    .from("lots")
+    .select("*")
+    .limit(1);
+
+  console.log("DATA:", data);
+  console.log("ERROR:", error);
+}
+
+testSupabase();
+
+async function loadStateFromSupabase() {
+  const { data: lots, error: lotsError } = await supabaseClient
+    .from("lots")
+    .select("*");
+
+  if (lotsError) {
+    console.error("LOTS ERROR", lotsError);
+    return;
+  }
+
+  const { data: calculations, error: calcError } = await supabaseClient
+    .from("calculations")
+    .select("*");
+
+  if (calcError) {
+    console.error("CALC ERROR", calcError);
+    return;
+  }
+
+  state = {
+    lots: lots || [],
+    calculations: calculations || []
+  };
+
+  render();
+}
+
 const STORAGE_KEY = "zakup-pwa-state-v1";
 const statuses = ["Проект", "Анализ", "Подали", "Выиграли", "Проиграли", "Договор", "Отказ", "Закрыто"];
 const inactiveStatuses = new Set(["Закрыто", "Проиграли", "Отказ"]);
@@ -71,7 +117,10 @@ seedState.calculations = [
   }
 ];
 
-let state = loadState();
+let state = {
+  lots: [],
+  calculations: []
+};
 
 const els = {
   totalLots: document.querySelector("#totalLots"),
@@ -96,10 +145,11 @@ const els = {
 
 init();
 
-function init() {
+async function init() {
   fillStatusOptions();
   bindEvents();
-  render();
+
+  await loadStateFromSupabase();
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
