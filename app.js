@@ -5,17 +5,6 @@ const supabaseClient = supabase.createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 );
-async function testSupabase() {
-  const { data, error } = await supabaseClient
-    .from("lots")
-    .select("*")
-    .limit(1);
-
-  console.log("DATA:", data);
-  console.log("ERROR:", error);
-}
-
-testSupabase();
 
 async function loadStateFromSupabase() {
   const { data: lots, error: lotsError } = await supabaseClient
@@ -343,32 +332,40 @@ function openCalcDialog(id = "") {
   els.calcDialog.showModal();
 }
 
-function saveLotFromForm(event) {
+async function saveLotFromForm(event) {
   event.preventDefault();
+
   const form = els.lotForm.elements;
   const id = form.id.value || crypto.randomUUID();
+
   const payload = {
-    id,
-    lotNumber: form.lotNumber.value.trim(),
+    id: id,
+    lot_number: form.lotNumber.value.trim(),
     status: form.status.value,
     name: form.name.value.trim(),
     category: form.category.value.trim(),
-    deadline: form.deadline.value,
+    deadline: form.deadline.value || null,
     address: form.address.value.trim(),
     budget: num(form.budget.value),
     comment: form.comment.value.trim(),
     link: form.link.value.trim(),
     docs: form.docs.value.trim(),
-    closedAt: form.closedAt.value
+    closed_at: form.closedAt.value || null
   };
 
-  const index = state.lots.findIndex((lot) => lot.id === id);
-  if (index >= 0) state.lots[index] = payload;
-  else state.lots.push(payload);
+  const { error } = await supabaseClient
+    .from("lots")
+    .upsert(payload);
 
-  persist();
+  if (error) {
+    console.error(error);
+    alert("Ошибка сохранения");
+    return;
+  }
+
+  await loadStateFromSupabase();
+
   els.lotDialog.close();
-  render();
 }
 
 function saveCalcFromForm(event) {
