@@ -333,6 +333,7 @@ function openCalcDialog(id = "") {
 }
 
 async function saveLotFromForm(event) {
+  alert("Сохранение запущено");
   event.preventDefault();
 
   const form = els.lotForm.elements;
