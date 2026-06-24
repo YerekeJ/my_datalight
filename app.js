@@ -352,10 +352,13 @@ async function saveLotFromForm(event) {
     docs: form.docs.value.trim(),
     closed_at: form.closedAt.value || null
   };
+  console.log("PAYLOAD", payload);
+  const result = await supabaseClient
+  .from("lots")
+  .upsert(payload)
+  .select();
 
-  const { error } = await supabaseClient
-    .from("lots")
-    .upsert(payload);
+  console.log("RESULT", result);
 
   if (error) {
     console.error(error);
