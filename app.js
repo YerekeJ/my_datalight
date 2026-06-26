@@ -55,7 +55,6 @@ function init() {
 // --- АВТОРИЗАЦИЯ ---
 
 function setupAuth() {
-  // Обработка входа
   els.loginForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const email = event.target.email.value;
@@ -67,23 +66,19 @@ function setupAuth() {
     }
   });
 
-  // Обработка выхода
   els.logoutButton?.addEventListener("click", async () => {
     await supabaseClient.auth.signOut();
   });
 
-  // Отслеживание статуса сессии
   supabaseClient.auth.onAuthStateChange((event, session) => {
     if (session) {
-      // Пользователь вошел
       els.loginDialog?.close();
       if (els.logoutButton) els.logoutButton.hidden = false;
-      loadStateFromSupabase(); // Загружаем данные только после входа
+      loadStateFromSupabase(); 
     } else {
-      // Пользователь не авторизоваен
       els.loginDialog?.showModal();
       if (els.logoutButton) els.logoutButton.hidden = true;
-      state = { lots: [], calculations: [] }; // Очищаем локальный стейт
+      state = { lots: [], calculations: [] }; 
       render();
     }
   });
