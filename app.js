@@ -32,24 +32,67 @@ const els = {
   calcPreview: document.querySelector("#calcPreview"),
   backupButton: document.querySelector("#backupButton"),
   importButton: document.querySelector("#importButton"),
-  importInput: document.querySelector("#importInput")
+  importInput: document.querySelector("#importInput"),
+  
+  // Элементы авторизации
+  loginDialog: document.querySelector("#loginDialog"),
+  loginForm: document.querySelector("#loginForm"),
+  logoutButton: document.querySelector("#logoutButton")
 };
 
 init();
 
-async function init() {
+function init() {
   fillStatusOptions();
   bindEvents();
-
-  await loadStateFromSupabase();
+  setupAuth();
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
 }
 
+// --- АВТОРИЗАЦИЯ ---
+
+function setupAuth() {
+  // Обработка входа
+  els.loginForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const email = event.target.email.value;
+    const password = event.target.password.value;
+    
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) {
+      alert("Ошибка входа: проверьте логин или пароль");
+    }
+  });
+
+  // Обработка выхода
+  els.logoutButton?.addEventListener("click", async () => {
+    await supabaseClient.auth.signOut();
+  });
+
+  // Отслеживание статуса сессии
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    if (session) {
+      // Пользователь вошел
+      els.loginDialog?.close();
+      if (els.logoutButton) els.logoutButton.hidden = false;
+      loadStateFromSupabase(); // Загружаем данные только после входа
+    } else {
+      // Пользователь не авторизоваен
+      els.loginDialog?.showModal();
+      if (els.logoutButton) els.logoutButton.hidden = true;
+      state = { lots: [], calculations: [] }; // Очищаем локальный стейт
+      render();
+    }
+  });
+}
+
+// --- СЛОЙ ДАННЫХ И SUPABASE ---
+
 function bindEvents() {
-  document.querySelectorAll(".nav-button").forEach((button) => {
+  document.querySelectorAll(".nav-button:not(#logoutButton)").forEach((button) => {
     button.addEventListener("click", () => switchView(button.dataset.view));
   });
 
@@ -67,23 +110,20 @@ function bindEvents() {
     });
   });
 
-  els.lotSearch.addEventListener("input", renderLots);
-  els.calcSearch.addEventListener("input", renderCalculations);
-  els.statusFilter.addEventListener("change", renderLots);
+  els.lotSearch?.addEventListener("input", renderLots);
+  els.calcSearch?.addEventListener("input", renderCalculations);
+  els.statusFilter?.addEventListener("change", renderLots);
 
-  els.lotForm.addEventListener("submit", saveLotFromForm);
-  els.calcForm.addEventListener("submit", saveCalcFromForm);
-  els.deleteLotButton.addEventListener("click", deleteCurrentLot);
-  els.deleteCalcButton.addEventListener("click", deleteCurrentCalc);
-  els.calcForm.addEventListener("input", updateCalcPreview);
-  els.backupButton.addEventListener("click", downloadBackup);
-  els.importButton.addEventListener("click", () => els.importInput.click());
-  els.importInput.addEventListener("change", importBackup);
+  els.lotForm?.addEventListener("submit", saveLotFromForm);
+  els.calcForm?.addEventListener("submit", saveCalcFromForm);
+  els.deleteLotButton?.addEventListener("click", deleteCurrentLot);
+  els.deleteCalcButton?.addEventListener("click", deleteCurrentCalc);
+  els.calcForm?.addEventListener("input", updateCalcPreview);
+  els.backupButton?.addEventListener("click", downloadBackup);
+  els.importButton?.addEventListener("click", () => els.importInput?.click());
+  els.importInput?.addEventListener("change", importBackup);
 }
 
-// --- СЛОЙ ДАННЫХ И SUPABASE ---
-
-// Мапперы для преобразования данных базы (snake_case) в клиентские (camelCase)
 function mapLotToClient(dbLot) {
   return {
     id: dbLot.id,
@@ -211,7 +251,6 @@ async function deleteCurrentLot() {
   const id = els.lotForm.elements.id.value;
   if (!id || !confirm("Удалить заявку и связанный есеп?")) return;
 
-  // Удаляем сначала расчеты, чтобы не было ошибок внешнего ключа
   await supabaseClient.from("calculations").delete().eq("lot_id", id);
   const result = await supabaseClient.from("lots").delete().eq("id", id);
 
@@ -249,7 +288,6 @@ async function importBackup(event) {
       const imported = JSON.parse(String(reader.result));
       if (!Array.isArray(imported.lots) || !Array.isArray(imported.calculations)) throw new Error("bad shape");
 
-      // Подготавливаем данные для БД
       const dbLots = imported.lots.map(lot => ({
         id: lot.id,
         lot_number: lot.lotNumber,
@@ -275,7 +313,6 @@ async function importBackup(event) {
         sale: num(calc.sale)
       }));
 
-      // Массовая загрузка в Supabase
       if (dbLots.length > 0) await supabaseClient.from("lots").upsert(dbLots);
       if (dbCalcs.length > 0) await supabaseClient.from("calculations").upsert(dbCalcs);
 
@@ -294,8 +331,8 @@ async function importBackup(event) {
 // --- СЛОЙ РЕНДЕРА И UI ---
 
 function fillStatusOptions() {
-  els.statusFilter.innerHTML = `<option value="">Все статусы</option>${statuses.map((status) => `<option>${status}</option>`).join("")}`;
-  els.lotForm.elements.status.innerHTML = statuses.map((status) => `<option>${status}</option>`).join("");
+  if (els.statusFilter) els.statusFilter.innerHTML = `<option value="">Все статусы</option>${statuses.map((status) => `<option>${status}</option>`).join("")}`;
+  if (els.lotForm) els.lotForm.elements.status.innerHTML = statuses.map((status) => `<option>${status}</option>`).join("");
 }
 
 function render() {
@@ -306,8 +343,8 @@ function render() {
 }
 
 function renderDashboard() {
-  els.totalLots.textContent = state.lots.length;
-  els.monthRevenue.textContent = formatMoney(getMonthRevenue());
+  if (els.totalLots) els.totalLots.textContent = state.lots.length;
+  if (els.monthRevenue) els.monthRevenue.textContent = formatMoney(getMonthRevenue());
 
   const upcoming = state.lots
     .filter((lot) => lot.deadline && !inactiveStatuses.has(lot.status))
@@ -315,14 +352,15 @@ function renderDashboard() {
     .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
     .slice(0, 3);
 
-  els.deadlineList.innerHTML = upcoming.length
+  if (els.deadlineList) els.deadlineList.innerHTML = upcoming.length
     ? upcoming.map((lot) => `<div class="deadline-item"><strong>${escapeHtml(lot.lotNumber)}</strong><span>${formatDate(lot.deadline)}</span></div>`).join("")
     : `<div class="empty">Нет ближайших сроков</div>`;
 }
 
 function renderLots() {
-  const query = els.lotSearch.value.trim().toLowerCase();
-  const status = els.statusFilter.value;
+  if (!els.lotsList) return;
+  const query = (els.lotSearch?.value || "").trim().toLowerCase();
+  const status = els.statusFilter?.value || "";
   const rows = state.lots.filter((lot) => {
     const matchesStatus = !status || lot.status === status;
     const haystack = `${lot.lotNumber} ${lot.name} ${lot.category} ${lot.address}`.toLowerCase();
@@ -339,7 +377,8 @@ function renderLots() {
 }
 
 function renderCalculations() {
-  const query = els.calcSearch.value.trim().toLowerCase();
+  if (!els.calcList) return;
+  const query = (els.calcSearch?.value || "").trim().toLowerCase();
   const rows = state.calculations.filter((calc) => {
     const lot = findLot(calc.lotId);
     return lot && lot.lotNumber.toLowerCase().includes(query);
@@ -412,7 +451,7 @@ function openLotDialog(id = "") {
   els.lotForm.elements.link.value = lot?.link || "";
   els.lotForm.elements.docs.value = lot?.docs || "";
   els.lotForm.elements.closedAt.value = lot?.closedAt || "";
-  els.deleteLotButton.hidden = !lot;
+  if (els.deleteLotButton) els.deleteLotButton.hidden = !lot;
   els.lotDialog.showModal();
 }
 
@@ -427,12 +466,13 @@ function openCalcDialog(id = "") {
   els.calcForm.elements.work.value = calc?.work || "";
   els.calcForm.elements.extra.value = calc?.extra || "";
   els.calcForm.elements.sale.value = calc?.sale || "";
-  els.deleteCalcButton.hidden = !calc;
+  if (els.deleteCalcButton) els.deleteCalcButton.hidden = !calc;
   updateCalcPreview();
   els.calcDialog.showModal();
 }
 
 function refreshCalcLotOptions() {
+  if (!els.calcForm) return;
   const usedLotIds = new Set(state.calculations.map((calc) => calc.lotId));
   const currentCalcId = els.calcForm?.elements.id?.value;
   const currentCalc = state.calculations.find((calc) => calc.id === currentCalcId);
@@ -444,6 +484,7 @@ function refreshCalcLotOptions() {
 }
 
 function updateCalcPreview() {
+  if (!els.calcForm || !els.calcPreview) return;
   const form = els.calcForm.elements;
   const totals = calculate({
     purchase: num(form.purchase.value),
@@ -483,7 +524,7 @@ function getMonthRevenue() {
 
 function switchView(id) {
   document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.id === id));
-  document.querySelectorAll(".nav-button").forEach((button) => button.classList.toggle("active", button.dataset.view === id));
+  document.querySelectorAll(".nav-button:not(#logoutButton)").forEach((button) => button.classList.toggle("active", button.dataset.view === id));
 }
 
 function downloadBackup() {
@@ -500,7 +541,6 @@ function findLot(id) {
   return state.lots.find((lot) => lot.id === id);
 }
 
-// Исправлено: теперь обрабатывает числа с пробелами, например "100 000"
 function num(value) {
   if (typeof value === "string") {
     value = value.replace(/\s/g, "");

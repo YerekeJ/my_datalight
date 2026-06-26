@@ -126,5 +126,15 @@
     </dialog>
  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="app.js"></script>
+<dialog id="loginDialog">
+  <form id="loginForm" style="display: flex; flex-direction: column; gap: 15px; padding: 20px;">
+    <h2>Вход в систему</h2>
+    <input type="email" name="email" placeholder="Email" required style="padding: 10px;">
+    <input type="password" name="password" placeholder="Пароль" required style="padding: 10px;">
+    <button type="submit" style="padding: 10px; background: #007bff; color: white; border: none; cursor: pointer;">Войти</button>
+  </form>
+</dialog>
+
+<button id="logoutButton" class="nav-button" type="button" hidden>Выйти</button>
   </body>
 </html>
