@@ -3,131 +3,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#090d12">
     <title>Закупки</title>
     <link rel="manifest" href="manifest.json">
-    <style>
-        /* Базовые стили для структуры сайта */
-        body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; background: #f5f5f5; }
-        header { padding: 15px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
-        nav { display: flex; gap: 10px; }
-        .nav-button { padding: 8px 16px; border: 1px solid #ccc; background: #fff; border-radius: 4px; cursor: pointer; }
-        .nav-button.active { background: #007bff; color: white; border-color: #007bff; }
-        main { padding: 20px; max-width: 1200px; margin: 0 auto; }
-        .view { display: none; }
-        .view.active { display: block; }
-        .stats { display: flex; gap: 20px; margin-bottom: 20px; }
-        .stats > div { background: #fff; padding: 15px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); flex: 1; }
-        .actions-bar { display: flex; gap: 10px; margin-bottom: 15px; }
-        .actions-bar input, .actions-bar select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-        .list-row { width: 100%; text-align: left; background: #fff; border: 1px solid #eee; border-radius: 6px; padding: 15px; margin-bottom: 10px; cursor: pointer; display: block; }
-        .list-row-main { display: flex; justify-content: space-between; margin-bottom: 5px; }
-        .lot-number { font-weight: bold; }
-        .badge { background: #e0e0e0; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
-        .row-title { margin: 5px 0; color: #333; }
-        .row-meta { display: flex; gap: 15px; font-size: 13px; color: #666; }
-        .profit-positive { color: green; font-weight: bold; }
-        .profit-negative { color: red; font-weight: bold; }
-        .empty { text-align: center; color: #999; padding: 40px; }
-        dialog::backdrop { background: rgba(0,0,0,0.5); }
-        dialog form div { margin-bottom: 12px; }
-        dialog form label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
-        dialog form input, dialog form select, dialog form textarea { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <div class="app-shell">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">CRM закупок</p>
+                <h1>Закупки</h1>
+            </div>
+            <button id="logoutButton" type="button" class="danger-action" style="display:none;">Выйти</button>
+        </header>
 
-    <header>
-        <nav>
+        <main>
+            <section id="dashboard" class="view active">
+                <div class="metric-grid">
+                    <div class="metric">
+                        <span>Всего заявок</span>
+                        <strong id="totalLots">0</strong>
+                    </div>
+                    <div class="metric">
+                        <span>Выручка за месяц</span>
+                        <strong id="monthRevenue">0 ₸</strong>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="panel-title"><h3>Ближайшие дедлайны</h3></div>
+                    <div id="deadlineList" class="deadline-list"></div>
+                </div>
+            </section>
+
+            <section id="lots" class="view">
+                <div class="section-head">
+                    <h2>Заявки</h2>
+                    <button data-open-lot type="button" class="primary-action">+ Добавить лот</button>
+                </div>
+                <div class="toolbar">
+                    <input type="text" id="lotSearch" placeholder="Поиск лотов...">
+                    <select id="statusFilter"></select>
+                </div>
+                <div id="lotsList" class="list"></div>
+            </section>
+
+            <section id="calculations" class="view">
+                <div class="section-head">
+                    <h2>Есептер</h2>
+                    <button data-open-calc type="button" class="primary-action">+ Добавить есеп</button>
+                </div>
+                <div class="toolbar">
+                    <input type="text" id="calcSearch" placeholder="Поиск по номеру лота...">
+                </div>
+                <div id="calcList" class="list"></div>
+
+                <div class="panel" style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <button id="backupButton" type="button" class="secondary-action">Скачать бэкап</button>
+                    <button id="importButton" type="button" class="secondary-action">Импорт данных</button>
+                    <input type="file" id="importInput" accept=".json" class="hidden">
+                </div>
+            </section>
+        </main>
+
+        <nav class="bottom-nav">
             <button class="nav-button active" data-view="dashboard">Главная</button>
             <button class="nav-button" data-view="lots">Заявки</button>
             <button class="nav-button" data-view="calculations">Есептер</button>
         </nav>
-        <button id="logoutButton" type="button" style="display: none; background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">Выйти</button>
-    </header>
+    </div>
 
-    <main>
-        <div id="dashboard" class="view active">
-            <div class="stats">
-                <div>Всего заявок: <strong id="totalLots">0</strong></div>
-                <div>Выручка за месяц: <strong id="monthRevenue">0 ₸</strong></div>
-            </div>
-            <h3>Ближайшие дедлайны</h3>
-            <div id="deadlineList"></div>
-        </div>
-
-        <div id="lots" class="view">
-            <div class="actions-bar">
-                <input type="text" id="lotSearch" placeholder="Поиск лотов...">
-                <select id="statusFilter"></select>
-                <button data-open-lot type="button" class="nav-button" style="background: #28a745; color: white;">Добавить лот</button>
-            </div>
-            <div id="lotsList"></div>
-        </div>
-
-        <div id="calculations" class="view">
-            <div class="actions-bar">
-                <input type="text" id="calcSearch" placeholder="Поиск по номеру лота...">
-                <button data-open-calc type="button" class="nav-button" style="background: #28a745; color: white;">Добавить есеп</button>
-            </div>
-            <div id="calcList"></div>
-            
-            <div style="margin-top: 30px; display: flex; gap: 10px;">
-                <button id="backupButton" type="button" class="nav-button">Скачать бэкап</button>
-                <button id="importButton" type="button" class="nav-button">Импорт данных</button>
-                <input type="file" id="importInput" accept=".json" style="display: none;">
-            </div>
-        </div>
-    </main>
-
-    <dialog id="lotDialog" style="padding: 25px; border-radius: 8px; border: none; box-shadow: 0 4px 20px rgba(0,0,0,0.2); width: 320px;">
-        <form id="lotForm" method="dialog">
+    <dialog id="lotDialog">
+        <form id="lotForm" method="dialog" class="dialog-form">
+            <div class="dialog-head"><h3>Лот</h3></div>
             <input type="hidden" name="id">
-            <div><label>Номер лота * <input type="text" name="lotNumber" required></label></div>
-            <div><label>Статус * <select name="status"></select></label></div>
-            <div><label>Наименование <input type="text" name="name"></label></div>
-            <div><label>Категория <input type="text" name="category"></label></div>
-            <div><label>Срок (Дедлайн) <input type="datetime-local" name="deadline"></label></div>
-            <div><label>Адрес <input type="text" name="address"></label></div>
-            <div><label>Бюджет <input type="text" name="budget"></label></div>
-            <div><label>Комментарий <textarea name="comment" rows="2"></textarea></label></div>
-            <div><label>Ссылка <input type="text" name="link"></label></div>
-            <div><label>Документы <input type="text" name="docs"></label></div>
-            <div><label>Дата закрытия <input type="date" name="closedAt"></label></div>
-            <div style="margin-top: 20px; display: flex; gap: 8px; justify-content: flex-end;">
-                <button type="button" data-close-dialog="lotDialog" class="nav-button">Отмена</button>
-                <button type="button" id="deleteLotButton" style="background:#dc3545; color:white; border: none; display: none;" class="nav-button">Удалить</button>
-                <button type="submit" class="nav-button" style="background: #007bff; color: white;">Сохранить</button>
+            <label>Номер лота * <input type="text" name="lotNumber" required></label>
+            <label>Статус * <select name="status"></select></label>
+            <label>Наименование <input type="text" name="name"></label>
+            <label>Категория <input type="text" name="category"></label>
+            <label>Срок (Дедлайн) <input type="datetime-local" name="deadline"></label>
+            <label>Адрес <input type="text" name="address"></label>
+            <label>Бюджет <input type="text" name="budget"></label>
+            <label>Комментарий <textarea name="comment" rows="2"></textarea></label>
+            <label>Ссылка <input type="text" name="link"></label>
+            <label>Документы <input type="text" name="docs"></label>
+            <label>Дата закрытия <input type="date" name="closedAt"></label>
+            <div class="dialog-actions">
+                <button type="button" data-close-dialog="lotDialog" class="secondary-action">Отмена</button>
+                <button type="button" id="deleteLotButton" class="danger-action hidden">Удалить</button>
+                <button type="submit" class="primary-action">Сохранить</button>
             </div>
         </form>
     </dialog>
 
-    <dialog id="calcDialog" style="padding: 25px; border-radius: 8px; border: none; box-shadow: 0 4px 20px rgba(0,0,0,0.2); width: 320px;">
-        <form id="calcForm" method="dialog">
+    <dialog id="calcDialog">
+        <form id="calcForm" method="dialog" class="dialog-form">
+            <div class="dialog-head"><h3>Есеп</h3></div>
             <input type="hidden" name="id">
-            <div><label>Выберите лот * <select name="lotId" required></select></label></div>
-            <div><label>Закуп товара <input type="text" name="purchase"></label></div>
-            <div><label>Доставка <input type="text" name="delivery"></label></div>
-            <div><label>Работа/Услуги <input type="text" name="work"></label></div>
-            <div><label>Доп. расходы <input type="text" name="extra"></label></div>
-            <div><label>Цена продажи (ЦП) <input type="text" name="sale"></label></div>
-            
-            <div id="calcPreview" style="margin: 15px 0; padding: 12px; background: #f8f9fa; border-radius: 6px; font-size: 14px; border: 1px solid #eee;"></div>
+            <label>Выберите лот * <select name="lotId" required></select></label>
+            <label>Закуп товара <input type="text" name="purchase"></label>
+            <label>Доставка <input type="text" name="delivery"></label>
+            <label>Работа/Услуги <input type="text" name="work"></label>
+            <label>Доп. расходы <input type="text" name="extra"></label>
+            <label>Цена продажи (ЦП) <input type="text" name="sale"></label>
 
-            <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px;">
-                <button type="button" data-close-dialog="calcDialog" class="nav-button">Отмена</button>
-                <button type="button" id="deleteCalcButton" style="background:#dc3545; color:white; border: none; display: none;" class="nav-button">Удалить</button>
-                <button type="submit" class="nav-button" style="background: #007bff; color: white;">Сохранить</button>
+            <div id="calcPreview" class="calc-preview"></div>
+
+            <div class="dialog-actions">
+                <button type="button" data-close-dialog="calcDialog" class="secondary-action">Отмена</button>
+                <button type="button" id="deleteCalcButton" class="danger-action hidden">Удалить</button>
+                <button type="submit" class="primary-action">Сохранить</button>
             </div>
         </form>
     </dialog>
 
-    <dialog id="loginDialog" style="border: none; border-radius: 8px; padding: 0; box-shadow: 0 4px 20px rgba(0,0,0,0.25);">
-      <form id="loginForm" style="display: flex; flex-direction: column; gap: 15px; padding: 30px; width: 280px;">
-        <h3 style="margin: 0 0 5px 0; text-align: center;">Вход в систему</h3>
-        <input type="email" name="email" placeholder="Email" required style="padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
-        <input type="password" name="password" placeholder="Пароль" required style="padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
-        <button type="submit" style="padding: 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Войти</button>
-      </form>
+    <dialog id="loginDialog">
+        <form id="loginForm" class="dialog-form" style="width:280px;">
+            <div class="dialog-head"><h3>Вход в систему</h3></div>
+            <input type="email" name="email" placeholder="Email" required>
+            <input type="password" name="password" placeholder="Пароль" required>
+            <button type="submit" class="primary-action">Войти</button>
+        </form>
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
